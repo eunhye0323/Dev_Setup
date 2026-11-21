@@ -53,6 +53,7 @@ Dev_Setup/
 - [9. Git & VSCode Github](#step-9)
 - [Docker 실습 재현 및 증거 수집](#docker-replay)
 - [트러블슈팅 — 포트 충돌 및 Git 작업 위치](#troubleshooting)
+- [보너스 과제 — Docker Compose와 GitHub SSH](#bonus)
 
 <a id="step-0"></a>
 
@@ -1521,4 +1522,130 @@ https://github.com/eunhye0323/Dev_Setup.git
 ```
 
 실패한 위치부터 복구 후 브랜치·원격 확인까지 한 세션에 기록했다. [실제 진단 로그](./evidence/terminal-session.txt)
+
+<a id="bonus"></a>
+
+## 6) 보너스 과제
+
+과제 1~4는 Docker 호스트의 같은 Bash 세션에서 순서대로 진행한다. 과제 5는 GitHub에 push할 개인 계정의 저장소에서 진행한다. 아래 **확인 기준**은 실행 후 실제 출력과 대조할 값이다.
+
+### 1. Docker Compose 기초 — 웹 서비스 하나 실행
+
+**설명** · `docker-compose.yml`의 `services` 아래에 서비스 이름과 설정을 둔다. `image`는 실행할 이미지, `ports`는 호스트와 컨테이너의 포트 연결, `volumes`는 웹 페이지의 경로다. 실행 옵션을 파일로 남기면 다른 사람도 같은 설정으로 서비스를 시작할 수 있다.
+
+**명령어** · 빈 작업 디렉토리에 페이지와 설정 파일을 만든다. `web`은 웹 서버, `probe`는 다음 과제에서 사용할 HTTP 클라이언트다.
+
+```bash
+docker compose version
+lab_dir=$(mktemp -d /tmp/dev-setup-compose.XXXXXX)
+cd "$lab_dir"
+unset APP_PORT  # 셸에 설정된 값보다 실습의 기본값과 .env를 사용
+printf 'Compose OK\n' > index.html
+
+cat > docker-compose.yml <<'YAML'
+services:
+  web:
+    image: python:3.12-alpine
+    environment:
+      APP_PORT: "${APP_PORT:-8000}"
+    command: ["sh", "-c", 'exec python -m http.server "$$APP_PORT" --directory /srv']
+    ports:
+      - "127.0.0.1:18080:${APP_PORT:-8000}"
+    volumes:
+      - ./index.html:/srv/index.html:ro
+
+  probe:
+    image: busybox:1.36
+    command: ["sleep", "86400"]
+YAML
+
+docker compose config
+docker compose up -d web
+docker compose ps
+curl --retry 5 --retry-connrefused --retry-delay 1 -fsS http://127.0.0.1:18080/
+```
+
+**확인 기준** · `ps`에 `web` 하나만 실행 중이고, 호스트의 `curl` 요청에 `Compose OK`가 출력된다.
+
+### 2. Compose 멀티 컨테이너 — 서비스 이름으로 통신
+
+**설명** · 두 서비스는 같은 Compose 프로젝트의 기본 네트워크에 연결된다. `probe`는 Docker DNS가 제공하는 서비스 이름 `web`과 컨테이너 내부 포트 `8000`으로 접속한다. `probe` 안에서 `localhost`는 `probe` 자신을 가리킨다. [Docker Compose 네트워크 문서](https://docs.docker.com/compose/how-tos/networking/)
+
+**명령어**
+
+```bash
+docker compose up -d
+docker compose ps
+docker compose exec -T probe wget -qO- http://web:8000/
+```
+
+**확인 기준** · `web`과 `probe`가 모두 실행 중이고, `probe`의 요청에서도 `Compose OK`가 출력된다. 이 요청은 호스트에 게시한 `18080` 포트를 거치지 않는다.
+
+### 3. Compose 운영 — 실행·상태·로그·종료
+
+| 순서 | 명령어 | 확인할 내용 |
+| --- | --- | --- |
+| 실행 | `docker compose up -d` | 설정에 정의한 두 서비스를 백그라운드에서 시작한다. |
+| 상태 | `docker compose ps -a` | 서비스별 상태와 `web`의 포트 매핑을 확인한다. |
+| 로그 | `docker compose logs --tail=20 web` | 앞서 보낸 요청에 해당하는 `GET /`와 HTTP 상태 코드 `200`을 찾는다. |
+| 종료 | `docker compose down` | 이 프로젝트의 컨테이너와 기본 네트워크를 제거한다. |
+| 종료 확인 | `docker compose ps -a` | 서비스 행이 남아 있지 않은지 확인한다. |
+
+### 4. 환경 변수 — 서버의 수신 포트 변경
+
+**설명** · 설정 파일의 `${APP_PORT:-8000}`은 Compose가 읽어 기본값 `8000`을 정한다. `environment`는 이 값을 컨테이너에 전달하고, `command`의 `$$APP_PORT`는 컨테이너 안의 셸이 읽는다. `.env` 한 줄로 서버의 수신 포트와 매핑 대상을 함께 변경한다. [Compose 환경 변수 문서](https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/)
+
+**명령어** · 과제 1에서 만든 임시 디렉토리에서 실행한다.
+
+```bash
+printf 'APP_PORT=8001\n' > .env
+docker compose config
+docker compose up -d
+docker compose exec -T web printenv APP_PORT
+docker compose port web 8001
+curl --retry 5 --retry-connrefused --retry-delay 1 -fsS http://127.0.0.1:18080/
+docker compose exec -T probe wget -qO- http://web:8001/
+docker compose down
+```
+
+**확인 기준** · `printenv`는 `8001`, `docker compose port`는 `127.0.0.1:18080`을 출력한다. 호스트의 기존 주소와 `probe`의 새 내부 주소 모두에서 `Compose OK`가 반환되면 포트 변경이 적용된 것이다.
+
+### 5. GitHub SSH 키 설정 — 등록·인증·push
+
+**설명** · HTTPS는 토큰 등의 자격 증명으로 인증하고, SSH는 GitHub에 등록한 공개키와 로컬 개인키의 쌍으로 인증한다. 개인키는 본인 계정에 보관하고 GitHub에는 `.pub` 파일의 내용만 등록한다.
+
+1. **키 준비** · 개인 계정의 터미널에서 공개키를 확인한다. 사용할 키 쌍이 이미 있으면 해당 공개키를 사용한다.
+
+   ```bash
+   ls -l ~/.ssh/id_ed25519.pub
+   ```
+
+   새 키가 필요한 경우 아래 명령을 실행하고 암호 문구를 설정한다. 같은 이름의 개인키가 있으면 덮어쓰지 않는다.
+
+   ```bash
+   ssh-keygen -t ed25519 -C "GitHub Dev_Setup" -f ~/.ssh/id_ed25519
+   ```
+
+2. **공개키 등록** · 아래 출력 한 줄을 GitHub의 **Settings → SSH and GPG keys → New SSH key**에서 **Authentication Key**로 등록한다. [GitHub 공개키 등록 안내](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/adding-a-new-ssh-key-to-your-github-account)
+
+   ```bash
+   cat ~/.ssh/id_ed25519.pub
+   ```
+
+3. **인증 확인** · 최초 접속 시 표시되는 호스트 키 지문을 GitHub 공식 지문과 대조한다. 성공 메시지 `Hi USERNAME! You've successfully authenticated`에서 본인의 계정명을 확인한다. 이 테스트는 인증에 성공해도 종료 코드 `1`을 반환한다. [GitHub SSH 연결 테스트](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/testing-your-ssh-connection) · [공식 호스트 키 지문](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/githubs-ssh-key-fingerprints)
+
+   ```bash
+   ssh -T git@github.com
+   ```
+
+4. **원격 변경 및 push** · `Dev_Setup` 저장소 루트에서 실행한다. `HEAD`를 사용하므로 현재 브랜치가 `master` 또는 `main`이어도 같은 명령을 쓴다.
+
+   ```bash
+   git remote set-url origin git@github.com:eunhye0323/Dev_Setup.git
+   git remote get-url --push origin
+   git push --dry-run origin HEAD
+   git push -u origin HEAD
+   ```
+
+   **확인 기준** · push URL이 `git@github.com:`으로 시작하고 실제 push가 성공한다. 새 커밋이 있으면 브랜치 갱신 내역이, 이미 동기화됐으면 `Everything up-to-date`가 출력된다.
 
