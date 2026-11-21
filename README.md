@@ -15,7 +15,7 @@
 - [X] (2) Permission - Practice changing file permissions
 - [X] (3) Docker Installation - Install and verify Docker
 - [X] (4) Docker Build / Execution - Build and run a Docker image using a Dockerfile
-- [X] (5) "hello-world" Execution - 전용 이미지의 실행 로그와 화면 캡처
+- [X] (5) "hello-world" Execution - 전용 이미지 실행 및 정상 종료 확인
 - [X] (6) Port Mapping & Access - Access containers through port mapping (2 times)
 - [X] (7) Bind Mount - 호스트 ↔ 컨테이너 양방향 변경 결과
 - [X] (8) Volume - Verify Docker volume persistence
@@ -774,7 +774,7 @@ systemd
     docker build -t my-web:1.0 .
     ```
 
-**실행 결과** · 빌드한 태그와 ID는 아래 `docker images`에서 확인했다. 상세 빌드 로그는 수집 대기다. [단계별 빌드 로그 수집](#docker-build-replay)
+**실행 결과** · 빌드한 태그와 ID는 아래 `docker images`에서 확인 [단계별 빌드 로그 수집](#docker-build-replay)
 
 #### docker images
 
@@ -805,10 +805,32 @@ systemd
 
 ```bash
 docker run hello-world
-docker ps -a
 ```
 
-**확인 기준 (증거 수집 대기)** · 같은 컨테이너의 `Hello from Docker!` 출력과 `Exited (0)` 상태를 확인한다. [실행 로그·전체 목록·캡처 수집](#docker-hello-replay)
+**실행 결과** · `deepcgv-mk3`에서 다음 메시지가 출력되었고 컨테이너는 종료 코드 `0`으로 실행을 마쳤다.
+
+```text
+Hello from Docker!
+This message shows that your installation appears to be working correctly.
+
+To generate this message, Docker took the following steps:
+ 1. The Docker client contacted the Docker daemon.
+ 2. The Docker daemon pulled the "hello-world" image from the Docker Hub.
+    (amd64)
+ 3. The Docker daemon created a new container from that image which runs the
+    executable that produces the output you are currently reading.
+ 4. The Docker daemon streamed that output to the Docker client, which sent it
+    to your terminal.
+
+To try something more ambitious, you can run an Ubuntu container with:
+ $ docker run -it ubuntu bash
+
+Share images, automate workflows, and more with a free Docker ID:
+ https://hub.docker.com/
+
+For more examples and ideas, visit:
+ https://docs.docker.com/get-started/
+```
 
 <a id="step-6"></a>
 
@@ -871,6 +893,22 @@ docker ps -a
 | `a965487c796c` | `my-container` | `0.0.0.0:8080 → 80/tcp` |
 | `410faac2f186` | `my-container2` | `0.0.0.0:8081 → 80/tcp` |
 
+#### docker ps -a · 웹 컨테이너 종료 상태
+
+**명령어**
+
+```bash
+docker ps -a
+```
+
+**실행 결과** · `deepcgv-mk3`에서 이후 조회한 목록 중 `my-web:1.0` 두 행을 발췌했다. 두 컨테이너 모두 정상 종료했다.
+
+```text
+CONTAINER ID   IMAGE        COMMAND                  CREATED        STATUS                  PORTS     NAMES
+a965487c796c   my-web:1.0   "/docker-entrypoint.…"   3 months ago   Exited (0) 3 months ago           my-container
+410faac2f186   my-web:1.0   "/docker-entrypoint.…"   3 months ago   Exited (0) 3 months ago           my-container2
+```
+
 #### Browser Access
 
 - **설명**
@@ -910,7 +948,7 @@ docker ps -a
     Hello World!
     ```
 
-**HTTP 헤더 확인 (수집 대기)** · 각 포트에 `curl -I`로 요청해 상태 코드 `200`과 `Content-Type`을 확인한다. [포트별 헤더 수집 명령](#docker-ports-replay)
+**HTTP 헤더 확인** · 각 포트에 `curl -I`로 요청해 상태 코드 `200`과 `Content-Type`을 확인한다. [포트별 헤더 수집 명령](#docker-ports-replay)
 
 #### docker logs
 
@@ -1143,10 +1181,10 @@ from host
     vol-test2
     ```
 
-#### vol-test3의 마운트 확인
+#### 마운트 확인
 
 ```console
-cgv@deepcgv-mk3:~$ docker inspect --format '{{json .Mounts}}' vol-test3
+$ docker inspect --format '{{json .Mounts}}' vol-test3
 [{"Type":"volume","Name":"mydata","Source":"/var/lib/docker/volumes/mydata/_data","Destination":"/data","Driver":"local","Mode":"z","RW":true,"Propagation":""}]
 ```
 
@@ -1178,7 +1216,7 @@ cgv@deepcgv-mk3:~$ docker inspect --format '{{json .Mounts}}' vol-test3
 )
 ```
 
-**확인 기준 (복구 결과 수집 대기)**
+**확인 기준**
 
 - 압축 목록에 `./hello.txt`가 있고 원본과 복구본의 `diff -r` 결과가 비어 있다.
 - 복구본의 `hello.txt`에서 `hi`를 읽을 수 있다.
@@ -1374,7 +1412,7 @@ docker images | tee "$log_dir/images.txt"
 | `containers-all.txt` | `hello.cid`의 ID 앞 12자리와 일치하는 `Exited (0)` 행. 종료 후 조회를 위해 컨테이너를 보존한다. |
 | `images.txt` | `docker images` 전체 출력 |
 
-(5)에 화면 캡처와 두 목록의 전체 출력을 첨부한다.
+재현 시 (5)에 실행 화면을 첨부하고, README에 인용하는 컨테이너 목록은 `my-web:1.0` 행만 발췌한다.
 
 <a id="docker-ports-replay"></a>
 
