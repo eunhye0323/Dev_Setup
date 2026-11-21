@@ -1,0 +1,65 @@
+date -Is
+2026-11-21T19:29:33+09:00
+# 루프백의 임시 TCP 포트를 점유한 실습 프로세스로 충돌과 해제를 재현한다.
+python3 -u - <<'PORT'
+import errno
+import socket
+import subprocess
+import sys
+
+child_code = '''
+import socket
+with socket.socket() as listener:
+    listener.bind(("127.0.0.1", 0))
+    listener.listen()
+    print(listener.getsockname()[1], flush=True)
+    input()
+'''
+with subprocess.Popen([sys.executable, "-u", "-c", child_code],
+                      stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True) as child:
+    try:
+        port = int(child.stdout.readline())
+        address = ("127.0.0.1", port)
+        print(f"LISTEN 127.0.0.1:{port} PID={child.pid}")
+        subprocess.run(["ps", "-p", str(child.pid), "-o", "pid,comm"], check=True)
+        with socket.socket() as second:
+            try:
+                second.bind(address)
+            except OSError as error:
+                if error.errno != errno.EADDRINUSE:
+                    raise
+                print(f"두 번째 bind 실패: {error}")
+            else:
+                raise RuntimeError("예상한 포트 충돌이 발생하지 않음")
+    finally:
+        child.communicate("\n", timeout=5)
+    print(f"점유 프로세스 종료 코드: {child.returncode}")
+    if child.returncode:
+        raise RuntimeError("점유 프로세스 비정상 종료")
+
+with socket.socket() as recovered:
+    recovered.bind(address)
+    recovered.listen()
+    print(f"동일 포트 bind 및 listen 성공: 127.0.0.1:{port}")
+PORT
+LISTEN 127.0.0.1:45901 PID=254223
+    PID COMMAND
+ 254223 python3
+두 번째 bind 실패: [Errno 98] Address already in use
+점유 프로세스 종료 코드: 0
+동일 포트 bind 및 listen 성공: 127.0.0.1:45901
+
+# 호스트 디렉토리를 빈 경로에 복원하고 파일 전체를 대조한다.
+mkdir source restored
+printf 'from host\n' > source/hello.txt
+tar -C source -czf data.tar.gz .
+tar -tzf data.tar.gz
+./
+./hello.txt
+tar -C restored -xzf data.tar.gz
+sha256sum source/hello.txt restored/hello.txt
+1104b7891b40673f4b6f5cc5e09be12a68ff13567648ae1510fae709e2df7115  source/hello.txt
+1104b7891b40673f4b6f5cc5e09be12a68ff13567648ae1510fae709e2df7115  restored/hello.txt
+diff -r source restored
+cat restored/hello.txt
+from host

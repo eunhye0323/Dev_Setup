@@ -1,0 +1,70 @@
+# 터미널과 권한 실습 재현
+date -Is
+2026-11-21T19:19:31+09:00
+pwd
+/tmp/dev-setup-terminal-v5vx3odp
+umask 022
+touch hello_world.txt
+ls -la
+total 220
+drwx------ 2 root root   4096 Nov 21 19:19 .
+drwxrwxrwt 1 root root 217088 Nov 21 19:19 ..
+-rw-r--r-- 1 root root      0 Nov 21 19:19 hello_world.txt
+printf 'Hello World!\n' > hello_world.txt
+cat hello_world.txt
+Hello World!
+mkdir dev_setup
+cd dev_setup
+pwd
+/tmp/dev-setup-terminal-v5vx3odp/dev_setup
+cd ..
+cp hello_world.txt hello_world_cp.txt
+mv hello_world_cp.txt dev_setup/
+cd dev_setup
+mv hello_world_cp.txt renamed_hello_world.txt
+ls -l renamed_hello_world.txt
+-rw-r--r-- 1 root root 13 Nov 21 19:19 renamed_hello_world.txt
+chmod 755 renamed_hello_world.txt
+ls -l renamed_hello_world.txt
+-rwxr-xr-x 1 root root 13 Nov 21 19:19 renamed_hello_world.txt
+cd ..
+chmod 644 dev_setup
+ls -ld dev_setup
+drw-r--r-- 2 root root 4096 Nov 21 19:19 dev_setup
+chmod 755 dev_setup
+ls -ld dev_setup
+drwxr-xr-x 2 root root 4096 Nov 21 19:19 dev_setup
+
+# Git 작업 위치 오류와 복구, 현재 저장소의 push 기록
+cd /root
+pwd
+/root
+git rev-parse --show-toplevel || true
+fatal: not a git repository (or any parent up to mount point /)
+Stopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).
+cd /root/Dev_Setup
+git rev-parse --show-toplevel
+/root/Dev_Setup
+git remote get-url origin
+https://github.com/eunhye0323/Dev_Setup.git
+git branch -vv
+* master 7a2e4f3 [origin/master] update dev setup
+git log -1 --date=iso-local --format='%h %cd %s'
+7a2e4f3 2026-11-21 19:04:12 +0900 update dev setup
+git reflog show -1 --date=iso-local --format='%h %gd %gs' refs/remotes/origin/master
+7a2e4f3 origin/master@{2026-11-21 19:04:18 +0900} update by push
+git rev-parse HEAD
+7a2e4f34cc2d68774b5fca1a22e65bc994d1761f
+git ls-remote origin refs/heads/master
+7a2e4f34cc2d68774b5fca1a22e65bc994d1761f	refs/heads/master
+
+# 편집 환경에서 Docker 실행 가능 여부 확인
+ps -p 1 -o comm=
+bash
+docker version || true
+bash: line 41: docker: command not found
+ls -l /var/run/docker.sock || true
+ls: cannot access '/var/run/docker.sock': No such file or directory
+systemctl is-active docker.service || true
+System has not been booted with systemd as init system (PID 1). Can't operate.
+Failed to connect to bus: Host is down
