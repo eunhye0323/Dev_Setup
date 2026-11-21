@@ -693,7 +693,7 @@ Failed to connect to bus: Host is down
      Architecture: x86_64
      CPUs: 64
      Total Memory: 251.5GiB
-     Name: deepcgv-mk3
+     Name: eunhye
      ID: XO3U:27VL:HJ4B:2DJW:RWT6:FJHH:7THB:2FTM:KFSB:5GNH:K42Q:QCY6
      Docker Root Dir: /var/lib/docker
      Debug Mode: false
@@ -717,7 +717,7 @@ Failed to connect to bus: Host is down
 | 환경 | PID 1 | 확인한 내용 |
 | --- | --- | --- |
 | 편집 환경 (2026-11-21) | `bash` | Docker CLI와 `/var/run/docker.sock` 없음. [환경 확인 로그](./evidence/terminal-session.txt) |
-| 실습 호스트 `deepcgv-mk3` | `systemd` | 아래 명령으로 PID 1 확인 |
+| 실습 호스트 `eunhye` | `systemd` | 아래 명령으로 PID 1 확인 |
 
 **호스트 확인 기록**
 
@@ -808,7 +808,7 @@ systemd
 docker run hello-world
 ```
 
-**실행 결과** · `deepcgv-mk3`에서 다음 메시지가 출력되었고 컨테이너는 종료 코드 `0`으로 실행을 마쳤다.
+**실행 결과** · `eunhye`에서 다음 메시지가 출력되었고 컨테이너는 종료 코드 `0`으로 실행을 마쳤다.
 
 ```text
 Hello from Docker!
@@ -902,7 +902,7 @@ For more examples and ideas, visit:
 docker ps -a
 ```
 
-**실행 결과** · `deepcgv-mk3`에서 이후 조회한 목록 중 `my-web:1.0` 두 행을 발췌했다. 두 컨테이너 모두 정상 종료했다.
+**실행 결과** · `eunhye`에서 이후 조회한 목록 중 `my-web:1.0` 두 행을 발췌했다. 두 컨테이너 모두 정상 종료했다.
 
 ```text
 CONTAINER ID   IMAGE        COMMAND                  CREATED        STATUS                  PORTS     NAMES
@@ -981,7 +981,7 @@ a965487c796c   my-web:1.0   "/docker-entrypoint.…"   3 months ago   Exited (0)
 - `src`는 Docker 데몬 호스트의 경로, `dst`는 컨테이너 안의 절대경로다. 예를 들어 `"$build_dir/site"`를 nginx의 `/usr/share/nginx/html`에 연결할 수 있다.
 - 상대경로 `./site`는 작업 디렉토리에 따라 달라진다. 실습에서는 `mktemp`로 만든 절대경로를 `src`로 사용한다. [Docker 바인드 마운트 문서](https://docs.docker.com/engine/storage/bind-mounts/)
 
-#### 양방향 변경 확인 (`deepcgv-mk3`)
+#### 양방향 변경 확인
 
 **명령어**
 
